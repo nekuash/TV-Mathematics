@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TV By The Numbers, The Mathematics of Television</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0A0E17;
+    --bg-2: #0D1220;
+    --glass: rgba(255,255,255,0.055);
+    --glass-strong: rgba(255,255,255,0.09);
+    --border: rgba(255,255,255,0.10);
+    --border-strong: rgba(255,255,255,0.18);
+    --cyan: #6EE7DE;
+    --amber: #FFB870;
+    --pink: #FF9FD6;
+    --text: #EAF0F5;
+    --text-soft: #9FADC0;
+    --text-mute: #64748B;
+    --holo: linear-gradient(115deg, #6EE7DE 0%, #FF9FD6 35%, #FFB870 65%, #6EE7DE 100%);
+    --chrome: linear-gradient(160deg, #E8ECF2 0%, #9BA6B8 40%, #C9D2DE 60%, #6E7889 100%);
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  *{ margin:0; padding:0; box-sizing:border-box; }
+
+  html{ scroll-behavior: smooth; }
+
+  body{
+    background: radial-gradient(ellipse 80% 60% at 50% -10%, #142033 0%, var(--bg) 55%), var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    line-height: 1.6;
+    overflow-x: hidden;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  /* ambient scanline texture over the whole page */
+  body::before{
+    content:"";
+    position: fixed; inset:0;
+    pointer-events:none;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.018) 0px,
+      rgba(255,255,255,0.018) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    z-index: 999;
+    mix-blend-mode: overlay;
+  }
+
+  /* soft glow blobs */
+  .glow-blob{
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(90px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .glow-blob.cyan{ width: 420px; height: 420px; background: rgba(110,231,222,0.14); top: 8%; left: -10%; }
+  .glow-blob.amber{ width: 380px; height: 380px; background: rgba(255,184,112,0.10); bottom: 6%; right: -8%; }
+
+  /* ---------- layout shell ---------- */
+  .wrap{ max-width: 1080px; margin: 0 auto; padding: 0 28px; position: relative; z-index: 1; }
+
+  /* ---------- top nav / remote ---------- */
+  .remote-nav{
+    position: fixed;
+    top: 50%; right: 26px;
+    transform: translateY(-50%);
+    display: flex; flex-direction: column;
+    gap: 10px;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-radius: 20px;
+    padding: 14px 10px;
+    z-index: 100;
+  }
+  .remote-nav button{
+    all: unset;
+    cursor: pointer;
+    width: 42px; height: 34px;
+    display:flex; align-items:center; justify-content:center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    color: var(--text-soft);
+    border-radius: 999px;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+  }
+  .remote-nav button:hover,
+  .remote-nav button.active{
+    background: rgba(110,231,222,0.12);
+    border-color: rgba(110,231,222,0.35);
+    color: var(--cyan);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.05) inset;
+  }
+  .remote-nav .dot{
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--chrome);
+    margin: 2px auto 6px;
+    box-shadow: 0 0 10px rgba(255,255,255,0.5), inset 0 -1px 2px rgba(0,0,0,0.3);
+  }
+  @media (max-width: 860px){
+    .remote-nav{ display: none; }
+  }
+
+  /* ---------- hero ---------- */
+  .hero{
+    min-height: 92vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center;
+    padding: 120px 24px 60px;
+    position: relative;
+  }
+
+  .eyebrow{
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 22px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .eyebrow::before{
+    content:"";
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--amber);
+    box-shadow: 0 0 10px rgba(255,184,112,0.9);
+    animation: blink 1.8s ease-in-out infinite;
+  }
+  @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:0.25;} }
+
+  /* the TV set, interactive 3D */
+  .tv-stage{
+    perspective: 1200px;
+    width: min(560px, 86vw);
+    margin: 0 auto 34px;
+  }
+  .tv-set{
+    width: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.15s ease-out;
+    cursor: grab;
+  }
+  .tv-set::before{
+    content:"";
+    position:absolute; inset: -3px;
+    border-radius: 30px;
+    background: var(--holo);
+    background-size: 300% 300%;
+    opacity: 0.55;
+    filter: blur(10px);
+    z-index: -1;
+    animation: holo-shift 7s ease-in-out infinite;
+  }
+  @keyframes holo-shift{
+    0%,100%{ background-position: 0% 50%; }
+    50%{ background-position: 100% 50%; }
+  }
+  .tv-hint{
+    text-align:center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--text-mute);
+    margin-top: -18px;
+    margin-bottom: 30px;
+  }
+
+  /* ---------- channel dial ---------- */
+  .dial-wrap{
+    position: fixed;
+    left: 26px; bottom: 26px;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 10px;
+    z-index: 100;
+  }
+  @media (max-width: 860px){ .dial-wrap{ display:none; } }
+  .dial{
+    width: 88px; height: 88px;
+    border-radius: 50%;
+    background: var(--chrome);
+    position: relative;
+    cursor: grab;
+    isolation: isolate;
+    box-shadow:
+      0 14px 30px -10px rgba(0,0,0,0.6),
+      inset 0 2px 3px rgba(255,255,255,0.7),
+      inset 0 -3px 6px rgba(0,0,0,0.35);
+    user-select: none;
+    touch-action: none;
+  }
+  .dial:active{ cursor: grabbing; }
+  .dial::before{
+    content:"";
+    position:absolute; inset: 10px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.6), rgba(120,130,145,0.4) 60%, rgba(40,46,58,0.6));
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+  }
+  .dial-notch{
+    position:absolute;
+    top: 6px; left: 50%;
+    width: 4px; height: 14px;
+    background: var(--pink);
+    border-radius: 2px;
+    box-shadow: 0 0 8px rgba(255,159,214,0.9);
+    transform: translateX(-50%) rotate(0deg);
+    transform-origin: 50% 38px;
+    z-index: 2;
+  }
+  .dial-label{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--text-mute);
+    text-align: center;
+  }
+  .dial-label span{ color: var(--cyan); font-weight: 600; }
+  .tv-body{
+    background: linear-gradient(155deg, rgba(230,236,244,0.14) 0%, rgba(180,190,205,0.06) 40%, rgba(30,36,48,0.5) 100%);
+    border: 1px solid rgba(255,255,255,0.22);
+    border-radius: 18px;
+    padding: 10px 10px 16px;
+    box-shadow: 0 40px 80px -24px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -1px 0 rgba(0,0,0,0.3);
+    position: relative;
+    backdrop-filter: blur(6px);
+  }
+  .tv-body::after{
+    content:"";
+    position:absolute; inset: 0;
+    border-radius: 18px;
+    padding: 1px;
+    background: var(--chrome);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  .tv-screen{
+    aspect-ratio: 16/9;
+    border-radius: 8px;
+    background:
+      radial-gradient(120% 100% at 30% 0%, rgba(110,231,222,0.20), transparent 60%),
+      radial-gradient(120% 100% at 80% 100%, rgba(255,184,112,0.18), transparent 60%),
+      #060910;
+    border: 1px solid rgba(255,255,255,0.10);
+    position: relative;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .tv-screen::before{
+    content:"";
+    position:absolute; inset:0;
+    background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 3px);
+    opacity: 0.5;
+    animation: flicker 5s infinite;
+  }
+  @keyframes flicker{ 0%,100%{opacity:0.45;} 48%{opacity:0.45;} 50%{opacity:0.15;} 52%{opacity:0.45;} }
+  .tv-screen::after{
+    content:"";
+    position:absolute;
+    top:-60%; left:-20%;
+    width: 55%; height: 220%;
+    background: linear-gradient(115deg, transparent 20%, rgba(255,255,255,0.10) 45%, rgba(255,255,255,0.02) 55%, transparent 75%);
+    transform: rotate(12deg);
+    pointer-events: none;
+  }
+
+  .tv-screen h1{
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(1.5rem, 4.4vw, 2.6rem);
+    line-height: 1.12;
+    color: #F5FBFA;
+    text-shadow: 0 0 18px rgba(110,231,222,0.55), 0 0 46px rgba(110,231,222,0.25);
+    position: relative; z-index: 1;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    cursor: pointer;
+  }
+  .tv-screen h1.hidden{
+    opacity: 0;
+    transform: scale(0.94);
+    pointer-events: none;
+  }
+
+  .matrix-canvas{
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    z-index: 2;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .matrix-canvas.playing{ opacity: 1; }
+
+  .tv-info{
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 26px 30px;
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(0.9);
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+  .tv-info.visible{
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+  }
+  .tv-info p{
+    font-family: var(--font-body);
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: #DDF7F3;
+    max-width: 380px;
+  }
+  .tv-info-hint{
+    margin-top: 14px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    opacity: 0.7;
+  }
+  .tv-controls{
+    display:flex; justify-content: flex-end; align-items:center; gap: 8px; padding: 8px 6px 6px;
+  }
+  .tv-controls span{
+    width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+    border: 1px solid rgba(255,255,255,0.3);
+  }
+  .tv-controls span:first-child{ background: var(--cyan); box-shadow: 0 0 8px rgba(110,231,222,0.8); }
+  .tv-stand{
+    width: 6px; height: 46px;
+    background: var(--chrome);
+    margin: 0 auto;
+    border-radius: 0 0 3px 3px;
+    position: relative;
+    opacity: 0.85;
+  }
+  .tv-stand::after{
+    content:"";
+    display:block;
+    width: 140px; height: 6px;
+    background: var(--chrome);
+    border-radius: 999px;
+    margin: 40px auto 0;
+    opacity: 0.7;
+    box-shadow: 0 8px 20px -6px rgba(0,0,0,0.6);
+  }
+
+  .hero p.sub{
+    max-width: 560px;
+    margin: 30px auto 0;
+    color: var(--text-soft);
+    font-size: 1.02rem;
+  }
+
+  .hero .scroll-cue{
+    margin-top: 46px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-mute);
+    letter-spacing: 0.08em;
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+  }
+  .hero .scroll-cue .bar{
+    width: 1px; height: 34px;
+    background: linear-gradient(to bottom, var(--cyan), transparent);
+    animation: pulse-bar 2s ease-in-out infinite;
+  }
+  @keyframes pulse-bar{ 0%,100%{opacity:0.3;} 50%{opacity:1;} }
+
+  /* ---------- section shell ---------- */
+  section{ padding: 90px 0; position: relative; }
+  .section-head{ margin-bottom: 44px; max-width: 640px; }
+  .section-head .kicker{
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 14px;
+  }
+  .section-head h2{
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    color: var(--text);
+    margin-bottom: 14px;
+  }
+  .section-head p{ color: var(--text-soft); font-size: 1rem; }
+
+  /* ---------- channel cards (glassmorphism) ---------- */
+  .channel-grid{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 20px;
+  }
+  @media (max-width: 720px){ .channel-grid{ grid-template-columns: 1fr; } }
+
+  .channel-card{
+    background: var(--glass);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 18px;
+    padding: 26px 26px 24px;
+    position: relative;
+    transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+    scroll-margin-top: 100px;
+  }
+  .channel-card:hover{
+    transform: translateY(-4px);
+    border-color: var(--border-strong);
+    background: var(--glass-strong);
+  }
+  .channel-card .ch-tag{
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    color: var(--amber);
+    display: inline-flex; align-items: center;
+    margin-bottom: 14px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,184,112,0.3);
+    background: rgba(255,184,112,0.08);
+  }
+  .channel-card h3{
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.15rem;
+    margin-bottom: 10px;
+    color: var(--text);
+  }
+  .channel-card p{
+    color: var(--text-soft);
+    font-size: 0.95rem;
+  }
+
+  .stat-chip{
+    margin-top: 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 13px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-soft);
+  }
+  .stat-chip svg{ flex-shrink: 0; }
+  .channel-card .formula{
+    margin-top: 14px;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--cyan);
+    background: rgba(110,231,222,0.06);
+    border: 1px solid rgba(110,231,222,0.18);
+    padding: 8px 12px;
+    border-radius: 8px;
+    display: inline-block;
+  }
+
+  .channel-card.wide{ grid-column: 1 / -1; }
+
+  /* ---------- footer ---------- */
+  footer{
+    padding: 60px 0 80px;
+    text-align: center;
+    color: var(--text-mute);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    letter-spacing: 0.04em;
+  }
+  footer .static-line{
+    width: 60px; height: 1px;
+    background: linear-gradient(to right, transparent, var(--border-strong), transparent);
+    margin: 0 auto 20px;
+  }
+</style>
+</head>
+<body>
+
+  <div class="glow-blob cyan"></div>
+  <div class="glow-blob amber"></div>
+
+  <div class="dial-wrap">
+    <div class="dial" id="channelDial">
+      <div class="dial-notch"></div>
+    </div>
+    <div class="dial-label">CH <span id="dialReadout">00</span></div>
+  </div>
+
+  <nav class="remote-nav" id="remoteNav">
+    <button data-target="#hero">PWR</button>
+    <div class="dot"></div>
+    <button data-target="#ch-screen">01</button>
+    <button data-target="#ch-signal">02</button>
+    <button data-target="#ch-eyes">03</button>
+    <button data-target="#ch-sound">04</button>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero" id="hero">
+    <div class="eyebrow">Now broadcasting</div>
+
+    <div class="tv-stage" id="tvStage">
+      <div class="tv-set" id="tvSet">
+        <div class="tv-body">
+          <div class="tv-controls"><span></span><span></span><span></span></div>
+          <div class="tv-screen" id="tvScreen">
+            <canvas class="matrix-canvas" id="matrixCanvas"></canvas>
+            <h1 id="tvTitle">TV By The&nbsp;Numbers</h1>
+            <div class="tv-info" id="tvInfo">
+              <p>so, why this topic, everything about a TV turned out to be numbers wearing a disguise. the size, the colors, the signal, even how far you sit from it. click around below and see for yourself.</p>
+              <span class="tv-info-hint">click to close</span>
+            </div>
+          </div>
+          <div class="tv-stand"></div>
+        </div>
+      </div>
+    </div>
+    <p class="tv-hint">move your cursor to tilt · click the screen to tune in</p>
+
+    <p class="sub">I went in thinking this was just a device for watching shows. Turns out almost every part of it, the screen, the signal, even how I watch it, runs on math I never noticed before.</p>
+
+    <div class="scroll-cue">
+      <span>SCROLL TO TUNE IN</span>
+      <div class="bar"></div>
+    </div>
+  </section>
+
+  <div class="wrap">
+
+    <!-- CHANNEL BLOCK: THE SCREEN ITSELF -->
+    <section id="ch-screen">
+      <div class="section-head">
+        <div class="kicker">Channel 01 &middot; The Screen</div>
+        <h2>okay so, the TV itself is already math</h2>
+        <p>Before any show even plays, I realized the TV as an object is built entirely out of numbers. Here's what I noticed when I actually looked into it.</p>
+      </div>
+
+      <div class="channel-grid">
+        <div class="channel-card">
+          <div class="ch-tag">CH 01</div>
+          <h3>wait, the "size" isn't the width?</h3>
+          <p>I used to assume a "55-inch" TV meant it was 55 inches across. Turns out that number is the diagonal, corner to corner. Once I thought about it as a triangle (width, height, and the diagonal as the hypotenuse), the Pythagorean theorem just... showed up. Same formula from math class, just sitting inside a TV spec sheet.</p>
+          <div class="stat-chip">
+            <svg width="30" height="20" viewBox="0 0 30 20" fill="none">
+              <rect x="1" y="1" width="28" height="18" rx="2" stroke="#FFB870" stroke-width="1.2"/>
+              <line x1="1" y1="19" x2="29" y2="1" stroke="#FFB870" stroke-width="1" stroke-dasharray="2 2"/>
+            </svg>
+            55" diagonal
+          </div>
+        </div>
+
+        <div class="channel-card">
+          <div class="ch-tag">CH 01</div>
+          <h3>why do old shows have black bars?</h3>
+          <p>This one bugged me for a while. It comes down to aspect ratio, basically a ratio between width and height, like 16:9 for modern screens versus 4:3 for older ones. When the ratios don't match, the TV pads the difference with black bars instead of stretching the image weirdly.</p>
+          <div class="stat-chip">
+            <svg width="30" height="18" viewBox="0 0 30 18" fill="none">
+              <rect x="1" y="1" width="28" height="16" rx="2" stroke="#6EE7DE" stroke-width="1.2"/>
+            </svg>
+            16:9 widescreen
+          </div>
+        </div>
+
+        <div class="channel-card">
+          <div class="ch-tag">CH 01</div>
+          <h3>4K isn't "double" HD, and that tripped me up</h3>
+          <p>I assumed 4K meant twice the detail of Full HD. Not quite, resolution is just width times height in pixels, and since both dimensions doubled, the actual pixel count is four times as many, not two. Simple multiplication, but it changed how I read spec sheets.</p>
+          <div class="stat-chip">
+            <svg width="26" height="20" viewBox="0 0 26 20" fill="none">
+              <rect x="1" y="1" width="7" height="7" fill="#6EE7DE" opacity="0.7"/>
+              <rect x="9.5" y="1" width="7" height="7" fill="#6EE7DE" opacity="0.4"/>
+              <rect x="18" y="1" width="7" height="7" fill="#6EE7DE" opacity="0.7"/>
+              <rect x="1" y="9.5" width="7" height="7" fill="#6EE7DE" opacity="0.4"/>
+              <rect x="9.5" y="9.5" width="7" height="7" fill="#6EE7DE" opacity="0.7"/>
+              <rect x="18" y="9.5" width="7" height="7" fill="#6EE7DE" opacity="0.4"/>
+            </svg>
+            1920 × 1080 px
+          </div>
+        </div>
+
+        <div class="channel-card">
+          <div class="ch-tag">CH 01</div>
+          <h3>16.7 million colors, from just three numbers</h3>
+          <p>This is the one that made me appreciate exponents outside of a textbook. Each color channel (red, green, blue) has 256 possible values, that's 2⁸. Multiply the three channels together and you get every color the screen can actually show.</p>
+          <div class="stat-chip">
+            <svg width="46" height="16" viewBox="0 0 46 16" fill="none">
+              <circle cx="8" cy="8" r="7" fill="#FF6B6B" opacity="0.85"/>
+              <circle cx="23" cy="8" r="7" fill="#6EE7DE" opacity="0.85"/>
+              <circle cx="38" cy="8" r="7" fill="#6B8CFF" opacity="0.85"/>
+            </svg>
+            256 × 256 × 256
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CHANNEL BLOCK: HOW THE SIGNAL MOVES -->
+    <section id="ch-signal">
+      <div class="section-head">
+        <div class="kicker">Channel 02 &middot; The Signal</div>
+        <h2>getting the picture to actually reach you</h2>
+        <p>This part surprised me the most, a lot of "invisible" TV stuff is really just math working fast enough that you never catch it happening.</p>
+      </div>
+
+      <div class="channel-grid">
+        <div class="channel-card">
+          <div class="ch-tag">CH 02</div>
+          <h3>60Hz just means "60 times a second"</h3>
+          <p>I always saw "60Hz" on TVs and shrugged past it. It's just frequency, how many times the screen redraws the image every second. Higher number, smoother motion. Same concept as frequency in physics, just applied somewhere I didn't expect.</p>
+        </div>
+
+        <div class="channel-card">
+          <div class="ch-tag">CH 02</div>
+          <h3>frequency and wavelength fight each other</h3>
+          <p>TV signals travel as electromagnetic waves, and here's the part I had to sit with: frequency and wavelength are inversely related. Push the frequency up, the wavelength shrinks. That relationship is basically the whole reason broadcast math exists.</p>
+        </div>
+
+        <div class="channel-card wide">
+          <div class="ch-tag">CH 02</div>
+          <h3>why streaming buffers (it's a math comparison, not "bad wifi")</h3>
+          <p>I always blamed my internet when something buffered, but it's really a comparison happening in real time. Compression math shrinks the video down first, based on a compression ratio. Then, while streaming, the player is constantly checking the bitrate the video needs against the bandwidth your connection can actually deliver. The second bandwidth loses that race, buffering kicks in.</p>
+        </div>
+
+        <div class="channel-card">
+          <div class="ch-tag">CH 02</div>
+          <h3>your remote speaks in 1s and 0s</h3>
+          <p>Every button press sends a pattern of infrared pulses that's really just binary, a sequence of 1s and 0s the TV reads and decodes. I didn't expect binary, of all things, to be sitting inside something as ordinary as a remote.</p>
+        </div>
+
+        <div class="channel-card">
+          <div class="ch-tag">CH 02</div>
+          <h3>volume doesn't go up in a straight line</h3>
+          <p>This one felt counterintuitive: going from volume 20 to 40 isn't "twice as loud." Decibels follow a logarithmic scale, not a linear one, so the jump in perceived loudness is much bigger than the numbers suggest.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- CHANNEL BLOCK: THE VIEWER -->
+    <section id="ch-eyes">
+      <div class="section-head">
+        <div class="kicker">Channel 03 &middot; The Viewer</div>
+        <h2>turns out I'm doing math too, just by watching</h2>
+        <p>This is the part I almost left out, because it felt like a stretch at first, but math doesn't stop at the screen. My own eyes and brain are quietly doing geometry the whole time I'm watching.</p>
+      </div>
+
+      <div class="channel-grid">
+        <div class="channel-card wide">
+          <div class="ch-tag">CH 03</div>
+          <h3>there's an actual "correct" distance to sit</h3>
+          <p>I thought where I sat was just personal preference. Apparently standards groups like SMPTE and THX have real formulas connecting screen size to recommended viewing distance, so your eyes take in the full picture comfortably. Sit too close or too far and the geometry between your eyes and the screen just stops working the way it's supposed to.</p>
+        </div>
+
+        <div class="channel-card">
+          <div class="ch-tag">CH 03</div>
+          <h3>my eyes can't actually see the pixels</h3>
+          <p>From a normal couch distance, individual pixels blend together into a smooth image instead of a visible grid. How close I'd need to sit before that breaks down is, itself, a geometry problem, angles and distance deciding what my eyes can resolve.</p>
+        </div>
+
+        <div class="channel-card">
+          <div class="ch-tag">CH 03</div>
+          <h3>brightness plays the same trick as volume</h3>
+          <p>Same logic as the decibel thing earlier, screen brightness isn't tuned on a flat 1-to-1 scale either. It follows a curve built around how human eyes actually perceive light, not how the raw numbers look on paper.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- CHANNEL BLOCK: SOUND (kept short, folds into footer transition) -->
+    <section id="ch-sound">
+      <div class="section-head">
+        <div class="kicker">Channel 04 &middot; Sign Off</div>
+        <h2>so yeah, it really does all add up</h2>
+        <p>Screen size, resolution, color, signal, compression, seating distance, even volume, none of it turned out to be random. Once I started looking, I couldn't find a single part of "just watching TV" that wasn't running on math somewhere underneath.</p>
+      </div>
+    </section>
+
+  </div>
+
+  <footer>
+    <div class="static-line"></div>
+    TV BY THE NUMBERS, END OF BROADCAST
+  </footer>
+
+  <script>
+    // 3D tilt interaction on the TV
+    const stage = document.getElementById('tvStage');
+    const tvSet = document.getElementById('tvSet');
+    const maxTilt = 14;
+
+    function tiltFromPointer(clientX, clientY){
+      const rect = stage.getBoundingClientRect();
+      const px = (clientX - rect.left) / rect.width;
+      const py = (clientY - rect.top) / rect.height;
+      const rotY = (px - 0.5) * maxTilt * 2;
+      const rotX = (0.5 - py) * maxTilt * 2;
+      tvSet.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+    }
+
+    stage.addEventListener('mousemove', (e) => tiltFromPointer(e.clientX, e.clientY));
+    stage.addEventListener('mouseleave', () => {
+      tvSet.style.transform = 'rotateX(0deg) rotateY(0deg)';
+    });
+    stage.addEventListener('touchmove', (e) => {
+      if(e.touches[0]) tiltFromPointer(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    stage.addEventListener('touchend', () => {
+      tvSet.style.transform = 'rotateX(0deg) rotateY(0deg)';
+    });
+
+    // Channel dial, drag to spin, release to tune
+    const dial = document.getElementById('channelDial');
+    const notch = dial.querySelector('.dial-notch');
+    const readout = document.getElementById('dialReadout');
+    const channelIds = ['#ch-screen', '#ch-signal', '#ch-eyes', '#ch-sound'];
+    let dragging = false;
+    let currentAngle = 0;
+
+    function angleFromEvent(clientX, clientY){
+      const rect = dial.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = clientX - cx;
+      const dy = clientY - cy;
+      return Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+    }
+
+    function setDialAngle(deg){
+      notch.style.transform = `translateX(-50%) rotate(${deg}deg)`;
+    }
+
+    function startDrag(clientX, clientY){
+      dragging = true;
+      dial.style.cursor = 'grabbing';
+    }
+
+    function moveDrag(clientX, clientY){
+      if(!dragging) return;
+      currentAngle = angleFromEvent(clientX, clientY);
+      setDialAngle(currentAngle);
+    }
+
+    function endDrag(){
+      if(!dragging) return;
+      dragging = false;
+      dial.style.cursor = 'grab';
+      let norm = ((currentAngle % 360) + 360) % 360;
+      const index = Math.round(norm / 90) % 4;
+      const snapped = index * 90;
+      setDialAngle(snapped);
+      readout.textContent = String(index + 1).padStart(2, '0');
+      const target = document.querySelector(channelIds[index]);
+      if(target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    dial.addEventListener('mousedown', (e) => startDrag(e.clientX, e.clientY));
+    window.addEventListener('mousemove', (e) => moveDrag(e.clientX, e.clientY));
+    window.addEventListener('mouseup', endDrag);
+    dial.addEventListener('touchstart', (e) => {
+      if(e.touches[0]) startDrag(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    window.addEventListener('touchmove', (e) => {
+      if(dragging && e.touches[0]) moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    window.addEventListener('touchend', endDrag);
+
+    // Click the TV screen -> quick matrix flash -> info pops in
+    const tvScreen = document.getElementById('tvScreen');
+    const tvTitle = document.getElementById('tvTitle');
+    const tvInfo = document.getElementById('tvInfo');
+    const matrixCanvas = document.getElementById('matrixCanvas');
+    const mctx = matrixCanvas.getContext('2d');
+    let matrixInterval = null;
+    let infoOpen = false;
+
+    function sizeCanvas(){
+      matrixCanvas.width = tvScreen.clientWidth;
+      matrixCanvas.height = tvScreen.clientHeight;
+    }
+
+    function runMatrixBurst(onDone){
+      sizeCanvas();
+      const chars = '01アイウエオ01px%Hz'.split('');
+      const fontSize = 14;
+      const columns = Math.floor(matrixCanvas.width / fontSize);
+      const drops = new Array(columns).fill(0);
+      matrixCanvas.classList.add('playing');
+
+      matrixInterval = setInterval(() => {
+        mctx.fillStyle = 'rgba(6,9,16,0.25)';
+        mctx.fillRect(0, 0, matrixCanvas.width, matrixCanvas.height);
+        mctx.font = fontSize + 'px monospace';
+        for(let i = 0; i < drops.length; i++){
+          const text = chars[Math.floor(Math.random() * chars.length)];
+          mctx.fillStyle = '#6EE7DE';
+          mctx.fillText(text, i * fontSize, drops[i] * fontSize);
+          if(drops[i] * fontSize > matrixCanvas.height && Math.random() > 0.975){
+            drops[i] = 0;
+          }
+          drops[i]++;
+        }
+      }, 40);
+
+      setTimeout(() => {
+        clearInterval(matrixInterval);
+        matrixCanvas.classList.remove('playing');
+        mctx.clearRect(0, 0, matrixCanvas.width, matrixCanvas.height);
+        if(onDone) onDone();
+      }, 650);
+    }
+
+    tvScreen.addEventListener('click', () => {
+      if(infoOpen){
+        tvInfo.classList.remove('visible');
+        tvTitle.classList.remove('hidden');
+        infoOpen = false;
+        return;
+      }
+      tvTitle.classList.add('hidden');
+      runMatrixBurst(() => {
+        tvInfo.classList.add('visible');
+        infoOpen = true;
+      });
+    });
+
+    const buttons = document.querySelectorAll('.remote-nav button[data-target]');
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const el = document.querySelector(btn.dataset.target);
+        if(el){ el.scrollIntoView({behavior:'smooth', block:'start'}); }
+      });
+    });
+
+    const sections = document.querySelectorAll('section[id]');
+    const navButtons = document.querySelectorAll('.remote-nav button[data-target]');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if(entry.isIntersecting){
+          navButtons.forEach(b => b.classList.remove('active'));
+          const match = document.querySelector(`.remote-nav button[data-target="#${entry.target.id}"]`);
+          if(match) match.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-40% 0px -50% 0px' });
+    sections.forEach(s => observer.observe(s));
+  </script>
+
+</body>
+</html>
